@@ -53,6 +53,12 @@ Docker cannot run the extension itself - see [Docker](#docker) below for why,
 and for the commands that validate, rebuild the lexicon for, and package the
 extension inside a container.
 
+### Direct Links
+
+https://chromewebstore.google.com/detail/veiltext-profanity-filter/clhbicgajbeccgkhkelpkompmoeeomin
+
+https://hub.docker.com/r/yuro04/veiltext-tools 
+
 ### Quick check that it works
 
 Open any normal website (not a `chrome://` page and not the Chrome Web Store -
