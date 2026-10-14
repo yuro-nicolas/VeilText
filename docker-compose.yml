@@ -1,0 +1,23 @@
+services:
+  validate:
+    build: .
+    volumes:
+      - .:/app
+    command: node scripts/validate-extension.js
+
+  lexicon:
+    build: .
+    volumes:
+      - .:/app
+    command: python3 data/build_default_lexicon.py
+
+  package:
+    build: .
+    volumes:
+      - .:/app
+    command: >
+      sh -c "mkdir -p dist && rm -f dist/veiltext.zip &&
+      zip -r dist/veiltext.zip . -x '.git/*' 'dist/*' 'node_modules/*'
+      'scripts/*' 'data/raw/*' 'data/build_default_lexicon.py'
+      'Dockerfile' 'docker-compose.yml' '.dockerignore' '*.md'
+      && echo 'Created dist/veiltext.zip'"
