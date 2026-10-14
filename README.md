@@ -7,6 +7,61 @@ occurs locally on your device, no data is ever sent to an external server.
 
 ---
 
+## Installation
+
+VeilText is a **Google Chrome extension**. There is no server or backend to set
+up - once it is loaded into Chrome, it runs entirely inside your browser.
+
+### Option 1: Chrome Web Store (recommended)
+
+1. Open the [Chrome Web Store](https://chromewebstore.google.com/).
+2. Search for **VeilText - Profanity Filter**.
+3. Click **Add to Chrome**, then confirm **Add extension**.
+4. (Optional) Click the puzzle-piece icon in Chrome's toolbar and **pin** VeilText
+   so its popup is one click away.
+
+<!-- TODO: replace step 1-2 with the direct listing link once you have it:
+     https://chromewebstore.google.com/detail/<name>/<extension-id> -->
+
+### Option 2: Install from source (Load unpacked)
+
+Use this to run the latest code from this repository, or while developing.
+
+1. **Get the code**
+
+   ```bash
+   git clone https://github.com/yuro-nicolas/VeilText-No-Dashboard.git
+   ```
+
+   Or click **Code -> Download ZIP** on GitHub and extract it.
+2. Open Chrome and go to `chrome://extensions`.
+3. Turn on **Developer mode** (top-right toggle).
+4. Click **Load unpacked** and select the project folder - the one that
+   directly contains `manifest.json`.
+5. VeilText now appears in your extensions list and its master toggle starts
+   **ON**. Tabs that were already open are filtered right away, without a
+   refresh (see [Activation & Toggle Behavior](#activation--toggle-behavior)).
+
+No `npm install` or build step is needed; the extension loads as-is.
+
+**After changing code:** go back to `chrome://extensions`, click the reload
+icon on the VeilText card, then refresh the page you're testing on.
+
+### Option 3: Docker (developer tooling only)
+
+Docker cannot run the extension itself - see [Docker](#docker) below for why,
+and for the commands that validate, rebuild the lexicon for, and package the
+extension inside a container.
+
+### Quick check that it works
+
+Open any normal website (not a `chrome://` page and not the Chrome Web Store -
+Chrome blocks all extensions there), click the VeilText icon, and confirm the
+master toggle is on. Matching words on the page should be covered according to
+your chosen filter mode.
+
+---
+
 ## Algorithms
 
 The filter ships with two interchangeable matching engines. Both scan the same
@@ -41,6 +96,24 @@ comparable for benchmarking.
 Both engines respect the same **case sensitivity** and **whole-word matching**
 settings, so switching the toggle in Settings changes only the underlying search
 strategy, not the filtering behavior.
+
+---
+
+## Features
+
+| Feature | Description |
+|---|---|
+| **Dual-algorithm engine** | Toggle between Aho-Corasick and Wu-Manber from Settings |
+| **3 filter modes** | Blur, Hide, or Replace matched text |
+| **Quick-add** | Add one or more custom blocked keywords from the popup quickly |
+| **Auto-Duplicate removal** | Checks for duplicate keywords automatically |
+| **Include allowlist** | Mark specific words as always-allowed, overriding both the built-in lexicon and your custom blocked keywords |
+| **Click-to-reveal, with a warning** | Clicking redacted text shows a content warning; confirming reveals the original text, and clicking again hides it |
+| **Live DOM observation** | MutationObserver re-scans dynamically loaded content |
+| **Case-sensitivity toggle** | Exact or case-insensitive matching |
+| **Whole word matching** | Only redacts exact word matches |
+| **Page load & link warnings** | Optional overlays warn before viewing a flagged page or following a flagged link |
+| **Privacy-first** | Zero external requests for filtering; all processing is local |
 
 ---
 
@@ -115,6 +188,20 @@ reveal covered text is always their choice.
 
 ---
 
+## Activation & Toggle Behavior
+
+- **First install:** the master toggle starts **ON** automatically
+- **Works on already-open tabs without a refresh:** on install (and on
+  update/reload of the extension), `background.js` uses
+  `chrome.scripting.executeScript` to inject the content script files
+  directly into every currently open, injectable tab (`http(s)://` and
+  `file://` URLs — browser-internal pages like `chrome://` can't be
+  injected into and are skipped). This means you don't have to manually
+  reload a tab that was already open before you installed or reloaded the
+  extension.
+
+---
+
 ## How Scan Performance Is Measured
 
 Every full-page scan and every mutation-triggered re-scan is timed using the
@@ -170,11 +257,16 @@ Key behaviors:
 ## Project Structure
 
 ```
-Thesis-VeilText-testing/
+VeilText-No-Dashboard/
 ├── manifest.json           # Extension manifest (permissions, content script list)
 ├── background.js           # Service worker: install defaults, tab injection, link pre-scan fetch
 ├── early-hide.js           # document_start overlay that hides the page briefly to avoid a flash of unfiltered content
 ├── popup.html / .css / .js # Settings popup UI
+├── Dockerfile              # Dev tooling image (validate / lexicon / package)
+├── docker-compose.yml      # Convenience commands for the Dockerfile
+├── .dockerignore
+├── scripts/
+│   └── validate-extension.js    # Checks manifest.json and that every file it references exists
 ├── data/
 │   ├── default_lexicon.json     # Built-in blocked-word list shipped with the extension
 │   └── build_default_lexicon.py # Script that regenerates default_lexicon.json from data/raw/*
@@ -205,57 +297,75 @@ file attaches its exports to `window.VeilText.<Namespace>` (see
 `src/namespace.js`) instead of using top-level `import`/`export`, so there's
 no bundler step required — you can load the extension unpacked as-is.
 `background.js` keeps its own copy of that same file list so it can inject
-the same set of scripts into already-open tabs (see "Activation" below).
+the same set of scripts into already-open tabs (see
+[Activation & Toggle Behavior](#activation--toggle-behavior)).
 
 ---
 
-## Activation & Toggle Behavior
+## Docker
 
-- **First install:** the master toggle starts **ON** automatically
-- **Works on already-open tabs without a refresh:** on install (and on
-  update/reload of the extension), `background.js` uses
-  `chrome.scripting.executeScript` to inject the content script files
-  directly into every currently open, injectable tab (`http(s)://` and
-  `file://` URLs — browser-internal pages like `chrome://` can't be
-  injected into and are skipped). This means you don't have to manually
-  reload a tab that was already open before you installed or reloaded the
-  extension.
+### Why the extension itself can't run in Docker
 
----
+Docker packages **server-side programs** - things that start up, listen on a
+port, and run on a machine somewhere. VeilText isn't one. It has no backend, no
+server, and no port to expose: it is a set of JavaScript files that **Google
+Chrome loads into your own browser** and runs on each web page you visit.
+Since it only works inside a real, running Chrome on your computer, there is
+nothing meaningful to "start" in a container, and installing it there would
+accomplish nothing for end users. Users install it from the Chrome Web Store
+or via **Load unpacked** (see [Installation](#installation)).
 
-## Installation
+### What Docker *is* used for here
 
-1. Clone or download this repository.
-2. Open **Chrome** and navigate to `chrome://extensions`.
-3. Enable **Developer mode** (top-right toggle).
-4. Click **Load unpacked** and select the extension folder.
+The container wraps the **developer tooling** around the extension, so these
+tasks run the same way on any machine without installing Node or Python
+locally:
 
-or simply search `VeilText - Profanity Filter` on chrome web store
-
----
-
-## Features
-
-| Feature | Description |
+| Command | What it does |
 |---|---|
-| **Dual-algorithm engine** | Toggle between Aho-Corasick and Wu-Manber from Settings |
-| **3 filter modes** | Blur, Hide, or Replace matched text |
-| **Quick-add** | Add one or more custom blocked keywords from the popup quickly |
-| **Auto-Duplicate removal** | Checks for duplicate keywords automatically |
-| **Include allowlist** | Mark specific words as always-allowed, overriding both the built-in lexicon and your custom blocked keywords |
-| **Click-to-reveal, with a warning** | Clicking redacted text shows a content warning; confirming reveals the original text, and clicking again hides it |
-| **Live DOM observation** | MutationObserver re-scans dynamically loaded content |
-| **Case-sensitivity toggle** | Exact or case-insensitive matching |
-| **Whole word matching** | Only redacts exact word matches |
-| **Page load & link warnings** | Optional overlays warn before viewing a flagged page or following a flagged link |
-| **Privacy-first** | Zero external requests for filtering; all processing is local |
+| `docker compose run --rm validate` | Checks that `manifest.json` is valid JSON and that every file it references (content scripts, popup, service worker, icons, etc.) exists. Also checks `data/default_lexicon.json` is a valid JSON array. |
+| `docker compose run --rm lexicon` | Regenerates `data/default_lexicon.json` by running `data/build_default_lexicon.py` (requires the source lists in `data/raw/`). |
+| `docker compose run --rm package` | Produces `dist/veiltext.zip`, ready to upload to the Chrome Web Store (or to unzip and load unpacked). Dev-only files (Docker files, scripts, raw lexicon sources, `.git`) are excluded. |
+
+### Setup
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+   (Windows/macOS) or Docker Engine with the Compose plugin (Linux), and make
+   sure it is running.
+2. From the project root (the folder containing `manifest.json`), build the
+   image once:
+
+   ```bash
+   docker compose build
+   ```
+
+3. Run any of the commands from the table above. Outputs (`dist/`, the
+   regenerated lexicon) are written back into your project folder through a
+   bind mount, so you can use them straight away.
+
+Example workflow before publishing an update:
+
+```bash
+docker compose run --rm lexicon     # only if you changed the raw word lists
+docker compose run --rm validate
+docker compose run --rm package     # upload dist/veiltext.zip to the Web Store
+```
+
+Commands work the same in PowerShell, Command Prompt, and bash.
+
+### Notes
+
+- Loading the extension in Chrome and testing it on real pages is still done
+  manually through `chrome://extensions` -> **Load unpacked**.
+- `lexicon` needs the raw source lists in `data/raw/`. If that folder isn't in
+  your clone, the script will fail; add the files first.
 
 ---
 
 ## Default Lexicon
 
 The extension includes a predefined English profanity lexicon generated by
-merging three publicly available datasets into a single deduplicated keyword
+merging publicly available datasets into a single deduplicated keyword
 list. The resulting lexicon serves as the extension's default set of blocked
 terms and can be supplemented or overridden with custom keywords and allowlist
 entries through the extension's settings.
@@ -280,5 +390,3 @@ The default lexicon is built from the following sources:
 4. **Swear Words Used by Filipino: A Case Study**  
    Available at: https://www.researchgate.net/publication/397749432_Swear_Words_Used_by_Filipino_A_Case_Study  
    A study documenting Filipino/Tagalog swear words and their usage among Filipinos. Its inclusion helps the default lexicon represent undesired language commonly used in the Philippine context, complementing the English-language profanity sources.
-
----
